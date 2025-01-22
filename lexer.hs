@@ -98,7 +98,7 @@ zipMaps f m1 m2 =
 translate :: Regex -> State Int NFA
 translate Empty = do
   node <- newNode ()
-  return $ makeNfa node [] Map.empty
+  return $ makeNfa node [node] Map.empty
 translate (Lit c) = do
   init <- newNode ()
   term <- newNode ()
@@ -149,13 +149,33 @@ translate (Range c1 c2) =
         then translate (Lit c1)
         else translate (Cat (Lit c1) (Range (succ c1) c2))
 
+translateMany ::  [(TestToken, Regex)] -> State Int NFA
+translateMany [] = do
+  node <- newNode ()
+  return $ makeNfa node [] Map.empty
+translateMany ((t, r) : rest) = do
+  headNFA <- translate r 
+  restNFA <- translateMany rest 
+  newInit <- newNode () 
+  let newTs = Map.fromList [(newInit, [(Eps, (initial headNFA))]), (newInit, [(Eps, (initial restNFA))])] in 
+    makeNfa 
+      newInit
+      ((terminal headNFA) ++ (terminal restNFA))
+      ((transitions  headNFA) +++ (transitions restNFA) +++ newTs)
+
 newNode :: () -> State Int Node
 newNode () = do
   i <- get
   put (i + 1)
   return $ Node i
 
-main :: IO () =
-  let expr = Plus (Alt (Lit 'A') (Cat (Lit 'X') (Lit 'Y')))
-   in let nfa = runState (translate expr) 0
-       in putStrLn $ show nfa
+data TestToken = ID | NUM | OP 
+
+main :: IO ()
+main = 
+  let rules = TokenRules 
+        [ (ID, Plus (Range 'a' 'z')),
+          (NUM, Plus (Range '0' '9')),
+          (OP, Alt (Lit '+') (Lit '-'))
+        ] :: [(TestToken, Regex)]
+  in putStrLn "oehtu"

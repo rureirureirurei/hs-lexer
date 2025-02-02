@@ -5,6 +5,7 @@ module NFA (Node(..), Transition(..), NFA(..), makeNfa, (+++)) where
 
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust)
+import Data.Graph
 
 data Node = Node Int deriving (Eq, Ord, Show)
 

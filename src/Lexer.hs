@@ -4,9 +4,9 @@ module Lexer (main) where
 
 import Control.Monad.State
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, isJust)
 import Regex
 import NFA
+import Graph
 
 -- Regex to NFA --
 
@@ -15,10 +15,10 @@ translate Empty = do
   node <- newNode ()
   return $ makeNfa node [node] Map.empty
 translate (Lit c) = do
-  init <- newNode ()
+  i <- newNode ()
   term <- newNode ()
-  let transitions = Map.fromList [(init, [((Transition c), term)])]
-  return $ makeNfa init [term] transitions
+  let transitions = Map.fromList [(i, [((Transition c), term)])]
+  return $ makeNfa i [term] transitions
 translate (Alt r1 r2) = do
   a1 <- (translate r1)
   a2 <- (translate r2)
@@ -65,18 +65,27 @@ translate (Range c1 c2) =
         else translate (Cat (Lit c1) (Range (succ c1) c2))
 
 translateMany ::  [(TestToken, Regex)] -> State Int NFA
-translateMany [] = do
-  node <- newNode ()
-  return $ makeNfa node [] Map.empty
-translateMany ((t, r) : rest) = do
-  headNFA <- translate r 
-  restNFA <- translateMany rest 
-  newInit <- newNode () 
-  let newTs = Map.fromList [(newInit, [(Eps, (initial headNFA))]), (newInit, [(Eps, (initial restNFA))])] in 
-    return $ makeNfa 
-      newInit
-      ((terminal headNFA) ++ (terminal restNFA))
-      ((transitions  headNFA) +++ (transitions restNFA) +++ newTs)
+translateMany rules = do
+  start <- newNode ()
+  nfas <- mapM (\(t, rgx) -> translate rgx) rules
+  let 
+    newEdges = Map.fromList $ [(start, map (\nfa -> (Eps, (initial nfa))) nfas )]
+    allTerminals = foldl (\acc nfa -> acc ++ (terminal nfa)) [] nfas
+    allTransitions = foldl (\acc nfa -> acc +++ (transitions nfa)) Map.empty nfas
+  return $ makeNfa start allTerminals (allTransitions +++ newEdges)
+
+
+--   return $ makeNfa node [] Map.empty
+-- translateMany [(t, r)] = translate r
+-- translateMany ((t, r) : rest) = do
+--   headNFA <- translate r 
+--   restNFA <- translateMany rest 
+--   newInit <- newNode () 
+--   let newTs = Map.fromList [(newInit, [(Eps, (initial headNFA)), (Eps, (initial restNFA))])] in 
+--     return $ makeNfa 
+--       newInit
+--       ((terminal headNFA) ++ (terminal restNFA))
+--       ((transitions  headNFA) +++ (transitions restNFA) +++ newTs)
 
 newNode :: () -> State Int Node
 newNode () = do
@@ -85,12 +94,6 @@ newNode () = do
   return $ Node i
 
 data TestToken = ID | NUM | OP deriving Show
-
--- Takes string and NFA 
--- Keeps states using the nondeterministic/state monad (should provide the move :: Char -> ? function)
--- There also should be some method like start(node?)
--- And the whole constructor also takes the whole NFA ?
--- 
 
 main :: IO ()
 main = 
@@ -101,5 +104,7 @@ main =
           (OP, Alt (Lit '+') (Lit '-'))
         ]
     (nfa, _) = runState (translateMany rules) 0
-  in putStrLn $ show nfa
+  in 
+    showNFA nfa
+    -- putStrLn $ show nfa
 

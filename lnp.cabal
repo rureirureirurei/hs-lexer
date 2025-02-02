@@ -23,6 +23,7 @@ source-repository head
 
 library
   exposed-modules:
+      Graph
       Lexer
       NFA
       Regex
@@ -36,6 +37,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , fgl
     , graphviz
     , mtl
     , text
@@ -53,6 +55,7 @@ executable lnp-exe
   build-depends:
       base >=4.7 && <5
     , containers
+    , fgl
     , graphviz
     , lnp
     , mtl
@@ -72,6 +75,7 @@ test-suite lnp-test
   build-depends:
       base >=4.7 && <5
     , containers
+    , fgl
     , graphviz
     , lnp
     , mtl

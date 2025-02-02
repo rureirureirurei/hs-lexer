@@ -9,16 +9,15 @@ import NFA
 import Graph
 
 -- Regex to NFA --
-
 translate :: Regex -> State Int NFA
 translate Empty = do
   node <- newNode ()
-  return $ makeNfa node [node] Map.empty
+  return $ nfa node [node] Map.empty
 translate (Lit c) = do
   i <- newNode ()
   term <- newNode ()
   let transitions = Map.fromList [(i, [((Transition c), term)])]
-  return $ makeNfa i [term] transitions
+  return $ nfa i [term] transitions
 translate (Alt r1 r2) = do
   a1 <- (translate r1)
   a2 <- (translate r2)
@@ -28,10 +27,10 @@ translate (Alt r1 r2) = do
       edges = [(Eps, i1), (Eps, i2)]
       newTs = Map.fromList [(i0, edges)]
    in return $
-        makeNfa
+        nfa
           i0
           (t1 ++ t2)
-          (ts1 +++ ts2 +++ newTs)
+          (ts1 `joinTs` ts2 `joinTs` newTs)
 translate (Cat r1 r2) = do
   a1 <- (translate r1)
   a2 <- (translate r2)
@@ -40,10 +39,10 @@ translate (Cat r1 r2) = do
       edge = [(Eps, i2)]
       newTs = Map.fromList [(t, edge) | t <- t1]
    in return $
-        makeNfa
+        nfa
           i1
           t2
-          (ts1 +++ ts2 +++ newTs)
+          (ts1 `joinTs` ts2 `joinTs` newTs)
 translate (Star r) = do
   a <- (translate r)
   newI <- newNode ()
@@ -51,10 +50,10 @@ translate (Star r) = do
       edge = [(Eps, newI)]
       newTs = Map.fromList $ [(t', edge) | t' <- t] ++ [(newI, [(Eps, i)])]
    in return $
-        makeNfa
+        nfa
           newI
           [newI]
-          (ts +++ newTs)
+          (ts `joinTs` newTs)
 translate (Plus r) = translate (Cat r (Star r))
 translate (Range c1 c2) =
   if c1 > c2
@@ -64,28 +63,16 @@ translate (Range c1 c2) =
         then translate (Lit c1)
         else translate (Cat (Lit c1) (Range (succ c1) c2))
 
+
 translateMany ::  [(TestToken, Regex)] -> State Int NFA
 translateMany rules = do
   start <- newNode ()
   nfas <- mapM (\(t, rgx) -> translate rgx) rules
   let 
-    newEdges = Map.fromList $ [(start, map (\nfa -> (Eps, (initial nfa))) nfas )]
-    allTerminals = foldl (\acc nfa -> acc ++ (terminal nfa)) [] nfas
-    allTransitions = foldl (\acc nfa -> acc +++ (transitions nfa)) Map.empty nfas
-  return $ makeNfa start allTerminals (allTransitions +++ newEdges)
-
-
---   return $ makeNfa node [] Map.empty
--- translateMany [(t, r)] = translate r
--- translateMany ((t, r) : rest) = do
---   headNFA <- translate r 
---   restNFA <- translateMany rest 
---   newInit <- newNode () 
---   let newTs = Map.fromList [(newInit, [(Eps, (initial headNFA)), (Eps, (initial restNFA))])] in 
---     return $ makeNfa 
---       newInit
---       ((terminal headNFA) ++ (terminal restNFA))
---       ((transitions  headNFA) +++ (transitions restNFA) +++ newTs)
+    newEdges = Map.fromList $ [(start, map (\a -> (Eps, (initial a))) nfas )]
+    allTerminals = foldl (\acc a -> acc ++ (terminal a)) [] nfas
+    allTransitions = foldl (\acc a -> acc `joinTs` (transitions a)) Map.empty nfas
+  return $ nfa start allTerminals (allTransitions `joinTs` newEdges)
 
 newNode :: () -> State Int Node
 newNode () = do
@@ -103,8 +90,8 @@ main =
           (NUM, Plus (Range '0' '1')),
           (OP, Alt (Lit '+') (Lit '-'))
         ]
-    (nfa, _) = runState (translateMany rules) 0
+    (a, _) = runState (translateMany rules) 0
   in 
-    showNFA nfa
-    -- putStrLn $ show nfa
+    showNFA a
+    -- putStrLn $ show a
 

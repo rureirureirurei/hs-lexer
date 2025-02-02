@@ -1,7 +1,7 @@
 module Graph (showNFA) where 
 
 import qualified Data.Map as Map
-import Data.Graph.Inductive.Graph
+import Data.Graph.Inductive.Graph (mkGraph)
 import Data.Graph.Inductive.PatriciaTree (Gr)
 import Data.GraphViz
 import Data.GraphViz.Printing
@@ -10,12 +10,13 @@ import NFA
 
 type NFA_Graph = Gr String String  -- Graph with labeled nodes & edges
 
+-- Takes NFA and returns instance of the Graph, compatible with the GraphViz
 convertNFAtoGraph :: NFA -> NFA_Graph
-convertNFAtoGraph nfa = mkGraph nodes edges
+convertNFAtoGraph a = mkGraph nodes edges
   where
-    nodes = [(n, show n) | Node n <- Map.keys (transitions nfa)]  -- Node labels
+    nodes = [(n, show n) | Node n <- Map.keys (transitions a)]  -- Node labels
     edges = [ (n1, n2, showTrans t)  -- Labeled edges
-            | (Node n1, transList) <- Map.toList (transitions nfa)
+            | (Node n1, transList) <- Map.toList (transitions a)
             , (t, Node n2) <- transList
             ]
     
@@ -30,4 +31,4 @@ writeXDot filename g = writeFile filename (unpack (renderDot (toDot (graphToDot 
 
 -- Generate an xdot file from NFA
 showNFA :: NFA -> IO ()
-showNFA nfa = writeXDot "nfa.xdot" (convertNFAtoGraph nfa)
+showNFA a = writeXDot "nfa.xdot" (convertNFAtoGraph a)

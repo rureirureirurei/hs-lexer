@@ -25,6 +25,7 @@ dependencies:
 - containers
 - text
 - fgl
+- extra
 
 ghc-options:
 - -Wall

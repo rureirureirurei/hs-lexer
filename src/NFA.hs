@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module NFA (Node(..), Transition(..), NFA(..), nfa, joinTs) where
+module NFA (Node(..), Transition(..), NFA(..), nfa, joinTs, Transitions) where
 
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust)

@@ -80,7 +80,7 @@ translate (Range c1 c2)
 
 
 -- Takes a list of rules and translates them into a single NFA instance along with a terminal-to-token map
-translateMany :: (Read t) => [(t, Regex)] -> (NFA, Map.Map Node t)
+translateMany :: [(t, Regex)] -> (NFA, Map.Map Node t)
 translateMany rules = fst $ runState buildNFA 0
   where 
     buildNFA = do

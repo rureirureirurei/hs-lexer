@@ -113,9 +113,21 @@ closureSet nfa visited =
     if new_nodes `Set.isSubsetOf` visited
       then visited
       else closureSet nfa all_nodes
-      
--- Computes the next nodes in the nondeterministic step.
+
+-- Computes the next nodes in the nondeterministic step for a given input character.
 ngoto :: NFA -> [Node] -> Char -> [Node]
+ngoto nfa nodes l = Set.toList (ngotoSet nfa (Set.fromList nodes) l)
+
+-- Helper function using a Set for efficient tracking
+ngotoSet :: NFA -> Set.Set Node -> Char -> Set.Set Node
+ngotoSet nfa visited l =
+  let 
+    edges = transitions nfa
+    -- Get transitions for character `l` only (ignoring epsilon)
+    get_transitions n = [m | (Transition c, m) <- Map.findWithDefault [] n edges, c == l]
+    new_nodes = Set.fromList (concatMap get_transitions (Set.toList visited))
+  in 
+    new_nodes  -- No recursion needed, just one-step transitions
 
 -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
 get_term_token :: NFA -> [Node] -> (Map.Map Node Token) -> Maybe Token

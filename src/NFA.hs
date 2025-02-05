@@ -12,16 +12,17 @@ data Transition = Eps | Transition Char deriving (Eq, Show)
 type Transitions = Map.Map Node [(Transition, Node)]
 
 data NFA = NFA
-  { initial     :: Node,
-    terminal    :: [Node],
-    transitions :: Transitions
+  { initial     :: Node
+  , terminal    :: [Node]
+  , transitions :: Transitions
   }
 
 nfa :: Node -> [Node] -> Transitions -> NFA
 nfa initial terminal transitions = NFA { initial, terminal, transitions }
 
 joinTs :: Transitions -> Transitions -> Transitions
-joinTs = zipMaps (\a b -> liftA2 (++) a b <|> a <|> b) -- This cryptic thing basically concatenates two Maybe lists
+-- Cryptic thingie is a concise way to concatenates two Maybe lists
+joinTs = zipMaps (\a b -> liftA2 (++) a b <|> a <|> b)
   where
     zipMaps f m1 m2 =
       let keys = merge (Map.keys m1) (Map.keys m2)

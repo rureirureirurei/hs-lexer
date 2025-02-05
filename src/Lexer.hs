@@ -3,11 +3,16 @@
 module Lexer (main) where
 
 import Control.Monad.State
+import Control.Monad (guard)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
+import Control.Applicative ((<|>))
 import Regex
 import NFA
 import Graph
 
+
+-- Auxillary function that merges two NFA's and adds new edges
 mergeNFAs :: Node -> [Node] -> [(Node, [(Transition, Node)])] -> [NFA] -> NFA 
 mergeNFAs start terminals newEdges nfas = 
   nfa 
@@ -15,7 +20,16 @@ mergeNFAs start terminals newEdges nfas =
     terminals 
     (foldl joinTs Map.empty ((Map.fromList newEdges) : (map transitions nfas)))
 
--- Regex to NFA --
+
+-- Auxillary function that gives new Node id
+newNode :: State Int Node
+newNode = do
+  i <- get
+  put (i + 1)
+  return $ Node i
+
+
+-- Translates Regular expression to NFA --
 translate :: Regex -> State Int NFA
 
 translate Empty = do
@@ -63,38 +77,65 @@ translate (Range c1 c2)
   | otherwise = translate (Cat (Lit c1) (Range (succ c1) c2))
 
 
-
-translateMany ::  [(TestToken, Regex)] -> State Int NFA
-translateMany rules = do
-  start <- newNode
-  nfas <- mapM (\(t, rgx) -> translate rgx) rules
+ -- Takes list of rules and translates them to the single NFA instance
+translateMany ::  [(Token, Regex)] -> NFA
+translateMany rules = 
   let 
-    newEdges = Map.fromList $ [(start, map (\a -> (Eps, (initial a))) nfas )]
-    allTerminals = foldl (\acc a -> acc ++ (terminal a)) [] nfas
-    allTransitions = foldl (\acc a -> acc `joinTs` (transitions a)) Map.empty nfas
-  return $ nfa start allTerminals (allTransitions `joinTs` newEdges)
+    mnfa = do
+      start <- newNode
+      nfas  <- mapM (\(t, rgx) -> translate rgx) rules
+      let 
+        newEdges       = Map.fromList $ [(start, map (\a -> (Eps, (initial a))) nfas )]
+        allTerminals   = foldl (\acc a -> acc ++ (terminal a)) [] nfas
+        allTransitions = foldl (\acc a -> acc `joinTs` (transitions a)) Map.empty nfas
+      return $ nfa start allTerminals (allTransitions `joinTs` newEdges)
+  in 
+    fst $ runState mnfa 0
 
 
-newNode :: State Int Node
-newNode = do
-  i <- get
-  put (i + 1)
-  return $ Node i
+data Token = ID | NUM | OP deriving Show
 
--- q :: 
 
-data TestToken = ID | NUM | OP deriving Show
+-- Computes the epsilon closure over the NFA.
+closure :: NFA -> [Node] -> [Node]
+
+-- Computes the next nodes in the nondeterministic step.
+ngoto :: NFA -> [Node] -> Char -> [Node]
+
+-- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
+get_term_token :: NFA -> [Nodes] -> (Map.Map Node Token) -> Maybe Token
+
+-- Takes NFA, dict that maps terminal nodes to tokens, list of characters and returns the list of tokens.
+lex :: NFA -> (Map.Map Node Token) -> [Char] -> [Token]
+lex nfa terminal_to_token literals = 
+  case aux (closure (initial nfa)) 0 of 
+    | None        -> []
+    | Some (t, n) -> t :: (lex NFA terminal_to_token (shift n literals))
+  -- Takes list of initial nodes and returns Nothing if no token was found, or pair of 
+  -- token, and how much literals should we take. 
+  where 
+    aux :: [Node] -> Int -> Maybe (Token, Int) 
+    aux nodes n =
+      let 
+        token  = get_term_token nodes
+        cur    = (\t -> (t, n)) <*> token
+        nodes  = ngoto nfa nodes (nth literals n)
+        try    = aux nodes (n + 1)
+      in 
+        try <|> cur
+
 
 main :: IO ()
 main = 
   let 
     rules =
-        [ (ID, Plus (Range 'a' 'b')),
-          (NUM, Plus (Range '0' '1')),
-          (OP, Alt (Lit '+') (Lit '-'))
-        ]
-    (a, _) = runState (translateMany rules) 0
+      [ (ID, Plus (Range 'a' 'b'))
+      , (NUM, Plus (Range '0' '1'))
+      , (OP, Alt (Lit '+') (Lit '-'))
+      ]
+    str = "a+b*10"
+    nfa = translateMany rules
   in 
-    showNFA a
-    -- putStrLn $ show a
+    print $ Lexer.lex nfa str 
+
 

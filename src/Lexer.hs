@@ -98,7 +98,22 @@ data Token = ID | NUM | OP deriving Show
 
 -- Computes the epsilon closure over the NFA.
 closure :: NFA -> [Node] -> [Node]
+closure nfa nodes = Set.toList (closureSet nfa (Set.fromList nodes))
 
+-- Helper function using a Set for efficient tracking
+closureSet :: NFA -> Set.Set Node -> Set.Set Node
+closureSet nfa visited =
+  let 
+    edges = transitions nfa
+    get_eps_transitions n = 
+      [m | (Eps, m) <- Map.findWithDefault [] n edges]  -- Get only epsilon transitions
+    new_nodes = Set.fromList (concatMap get_eps_transitions (Set.toList visited))
+    all_nodes = visited `Set.union` new_nodes  -- Keep track of visited nodes
+  in 
+    if new_nodes `Set.isSubsetOf` visited
+      then visited
+      else closureSet nfa all_nodes
+      
 -- Computes the next nodes in the nondeterministic step.
 ngoto :: NFA -> [Node] -> Char -> [Node]
 

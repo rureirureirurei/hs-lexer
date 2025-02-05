@@ -165,8 +165,8 @@ main =
       , (OP, Alt (Lit '+') (Lit '-'))
       ]
     str = "a+b*10"
-    nfa = translateMany rules
+    (nfa, t2t) = translateMany rules
   in 
-    print $ Lexer.lex nfa str 
+    print $ Lexer.lex nfa t2t str 
 
 

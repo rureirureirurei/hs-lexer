@@ -3,19 +3,18 @@
 module Lexer (main) where
 
 import Control.Monad.State
-import Control.Monad (guard)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Control.Applicative ((<|>))
 import Regex
 import NFA
-import Graph
+import qualified Graph (showNFA)
 
 
 -- Auxillary function that merges two NFA's and adds new edges
 mergeNFAs :: Node -> [Node] -> [(Node, [(Transition, Node)])] -> [NFA] -> NFA 
 mergeNFAs start terminals newEdges nfas = 
-  nfa 
+ mkNfa 
     start 
     terminals 
     (foldl joinTs Map.empty ((Map.fromList newEdges) : (map transitions nfas)))
@@ -34,12 +33,12 @@ translate :: Regex -> State Int NFA
 
 translate Empty = do
   node <- newNode
-  return $ nfa node [node] Map.empty
+  return $ mkNfa node [node] Map.empty
 
 translate (Lit c) = do
   i <- newNode
   t <- newNode
-  return $ nfa i [t] (Map.singleton i [(Transition c, t)])
+  return $ mkNfa i [t] (Map.singleton i [(Transition c, t)])
 
 translate (Alt r1 r2) = do
   a1 <- translate r1
@@ -73,13 +72,12 @@ translate (Plus r) = translate (Cat r (Star r))
 
 translate (Range c1 c2)
   | c1 > c2   = error "Invalid range expression"
-  | c1 == c2  = translate (Lit c1)
-  | otherwise = translate (Cat (Lit c1) (Range (succ c1) c2))
-
+  | otherwise = translate $ foldl (Alt) (Lit c1) (map Lit [succ c1 .. c2])
+  
 
 -- Takes a list of rules and translates them into a single NFA instance along with a terminal-to-token map
 translateMany :: [(Token, Regex)] -> (NFA, Map.Map Node Token)
-translateMany rules = runState buildNFA 0
+translateMany rules = fst $ runState buildNFA 0
   where 
     buildNFA = do
       start <- newNode
@@ -91,7 +89,7 @@ translateMany rules = runState buildNFA 0
         terminalToToken = Map.fromList [(n, t) | (t, a) <- zip (map fst rules) nfas, n <- terminal a]
         allTransitions  = foldl joinTs Map.empty (map transitions nfas)
 
-      return (nfa start allTerminals (allTransitions `joinTs` newEdges), terminalToToken)
+      return $ (mkNfa start allTerminals (allTransitions `joinTs` newEdges), terminalToToken)
 
 
 data Token = ID | NUM | OP deriving Show
@@ -164,9 +162,12 @@ main =
       , (NUM, Plus (Range '0' '1'))
       , (OP, Alt (Lit '+') (Lit '-'))
       ]
-    str = "a+b*10"
+    str = "a+b-10"
     (nfa, t2t) = translateMany rules
-  in 
-    print $ Lexer.lex nfa t2t str 
+  in do 
+    Graph.showNFA nfa
+    print $ t2t
+    print $ (show $ Lexer.lex nfa t2t str)
 
 
+ 

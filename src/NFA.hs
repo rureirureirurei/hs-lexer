@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module NFA (Node(..), Transition(..), NFA(..), nfa, joinTs, Transitions) where
+module NFA (Node(..), Transition(..), NFA(..), mkNfa, joinTs, Transitions) where
 
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust)
@@ -17,8 +17,8 @@ data NFA = NFA
   , transitions :: Transitions
   }
 
-nfa :: Node -> [Node] -> Transitions -> NFA
-nfa initial terminal transitions = NFA { initial, terminal, transitions }
+mkNfa :: Node -> [Node] -> Transitions -> NFA
+mkNfa initial terminal transitions = NFA { initial, terminal, transitions }
 
 joinTs :: Transitions -> Transitions -> Transitions
 -- Cryptic thingie is a concise way to concatenates two Maybe lists

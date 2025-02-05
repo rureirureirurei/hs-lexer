@@ -95,14 +95,9 @@ translateMany rules =
 
 data Token = ID | NUM | OP deriving Show
 
-
 -- Computes the epsilon closure over the NFA.
-closure :: NFA -> [Node] -> [Node]
-closure nfa nodes = Set.toList (closureSet nfa (Set.fromList nodes))
-
--- Helper function using a Set for efficient tracking
-closureSet :: NFA -> Set.Set Node -> Set.Set Node
-closureSet nfa visited =
+closure :: NFA -> Set.Set Node -> Set.Set Node
+closure nfa visited =
   let 
     edges = transitions nfa
     get_eps_transitions n = 
@@ -112,43 +107,40 @@ closureSet nfa visited =
   in 
     if new_nodes `Set.isSubsetOf` visited
       then visited
-      else closureSet nfa all_nodes
+      else closure nfa all_nodes
+
 
 -- Computes the next nodes in the nondeterministic step for a given input character.
-ngoto :: NFA -> [Node] -> Char -> [Node]
-ngoto nfa nodes l = Set.toList (ngotoSet nfa (Set.fromList nodes) l)
-
--- Helper function using a Set for efficient tracking
-ngotoSet :: NFA -> Set.Set Node -> Char -> Set.Set Node
-ngotoSet nfa visited l =
+ngoto :: NFA -> Set.Set Node -> Char -> Set.Set Node
+ngoto nfa nodes l =
   let 
     edges = transitions nfa
-    -- Get transitions for character `l` only (ignoring epsilon)
     get_transitions n = [m | (Transition c, m) <- Map.findWithDefault [] n edges, c == l]
-    new_nodes = Set.fromList (concatMap get_transitions (Set.toList visited))
   in 
-    new_nodes  -- No recursion needed, just one-step transitions
+    Set.fromList (concatMap get_transitions (Set.toList nodes))
+
 
 -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
-get_term_token :: NFA -> [Node] -> (Map.Map Node Token) -> Maybe Token
+get_term_token :: NFA -> Set.Set Node -> Map.Map Node Token -> Maybe Token
 get_term_token _ nodes terminal_to_token = 
-  case filter (`Map.member` terminal_to_token) nodes of
-    []     -> Nothing         -- No terminal nodes found
-    (t:_)  -> Map.lookup t terminal_to_token  -- Return the first matching token
+  case Set.lookupMin (Set.filter (`Map.member` terminal_to_token) nodes) of
+    Nothing -> Nothing         -- No terminal nodes found
+    Just t  -> Map.lookup t terminal_to_token  -- Return the first matching token
+
 
 -- Takes an NFA, a dictionary mapping terminal nodes to tokens, and a list of characters
 -- Returns the list of tokens.
-lex :: NFA -> (Map.Map Node Token) -> [Char] -> [Token]
+lex :: NFA -> Map.Map Node Token -> [Char] -> [Token]
 lex nfa terminal_to_token literals = 
-  case aux (closure nfa [initial nfa]) 0 of 
+  case aux (closure nfa (Set.singleton (initial nfa))) 0 of 
     Nothing       -> []  -- No token found, return an empty list
     Just (t, n)   -> t : lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
 
   where 
     -- Recursive helper function to match the longest valid token
-    aux :: [Node] -> Int -> Maybe (Token, Int)
+    aux :: Set.Set Node -> Int -> Maybe (Token, Int)
     aux nodes n
-      | n >= length literals = get_token_result (length literals) nodes  -- End of input
+      | n >= length literals = get_token_result n nodes  -- End of input
       | otherwise =
           let 
             next_nodes = closure nfa (ngoto nfa nodes (literals !! n))  -- Compute next states with closure
@@ -157,8 +149,8 @@ lex nfa terminal_to_token literals =
             try_next <|> get_token_result n nodes  -- Prefer longer matches
 
     -- Returns a token if any terminal state is reached
-    get_token_result :: [Node] -> Int -> Maybe (Token, Int)
-    get_token_result nodes =
+    get_token_result :: Int -> Set.Set Node -> Maybe (Token, Int)
+    get_token_result n nodes =
       case get_term_token nfa nodes terminal_to_token of
         Just token -> Just (token, n)
         Nothing    -> Nothing

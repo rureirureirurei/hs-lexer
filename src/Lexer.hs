@@ -12,39 +12,6 @@ import qualified Graph (showNFA)
 
 data Token = ID | NUM | OP deriving Show
 
--- Computes the epsilon closure over the NFA.
-closure :: NFA -> Set.Set Node -> Set.Set Node
-closure nfa visited =
-  let 
-    edges = transitions nfa
-    get_eps_transitions n = 
-      [m | (Eps, m) <- Map.findWithDefault [] n edges]  -- Get only epsilon transitions
-    new_nodes = Set.fromList (concatMap get_eps_transitions (Set.toList visited))
-    all_nodes = visited `Set.union` new_nodes  -- Keep track of visited nodes
-  in 
-    if new_nodes `Set.isSubsetOf` visited
-      then visited
-      else closure nfa all_nodes
-
-
--- Computes the next nodes in the nondeterministic step for a given input character.
-ngoto :: NFA -> Set.Set Node -> Char -> Set.Set Node
-ngoto nfa nodes l =
-  let 
-    edges = transitions nfa
-    get_transitions n = [m | (Transition c, m) <- Map.findWithDefault [] n edges, c == l]
-  in 
-    Set.fromList (concatMap get_transitions (Set.toList nodes))
-
-
--- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
-get_term_token :: NFA -> Set.Set Node -> Map.Map Node Token -> Maybe Token
-get_term_token _ nodes terminal_to_token = 
-  case Set.lookupMin (Set.filter (`Map.member` terminal_to_token) nodes) of
-    Nothing -> Nothing         -- No terminal nodes found
-    Just t  -> Map.lookup t terminal_to_token  -- Return the first matching token
-
-
 -- Takes an NFA, a dictionary mapping terminal nodes to tokens, and a list of characters
 -- Returns the list of tokens.
 lex :: NFA -> Map.Map Node Token -> [Char] -> [Token]
@@ -71,6 +38,39 @@ lex nfa terminal_to_token literals =
       case get_term_token nfa nodes terminal_to_token of
         Just token -> Just (token, n)
         Nothing    -> Nothing
+
+        -- Computes the epsilon closure over the NFA.
+    closure :: NFA -> Set.Set Node -> Set.Set Node
+    closure nfa visited =
+      let 
+        edges = transitions nfa
+        get_eps_transitions n = 
+          [m | (Eps, m) <- Map.findWithDefault [] n edges]  -- Get only epsilon transitions
+        new_nodes = Set.fromList (concatMap get_eps_transitions (Set.toList visited))
+        all_nodes = visited `Set.union` new_nodes  -- Keep track of visited nodes
+      in 
+        if new_nodes `Set.isSubsetOf` visited
+          then visited
+          else closure nfa all_nodes
+
+
+    -- Computes the next nodes in the nondeterministic step for a given input character.
+    ngoto :: NFA -> Set.Set Node -> Char -> Set.Set Node
+    ngoto nfa nodes l =
+      let 
+        edges = transitions nfa
+        get_transitions n = [m | (Transition c, m) <- Map.findWithDefault [] n edges, c == l]
+      in 
+        Set.fromList (concatMap get_transitions (Set.toList nodes))
+
+
+    -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
+    get_term_token :: NFA -> Set.Set Node -> Map.Map Node Token -> Maybe Token
+    get_term_token _ nodes terminal_to_token = 
+      case Set.lookupMin (Set.filter (`Map.member` terminal_to_token) nodes) of
+        Nothing -> Nothing         -- No terminal nodes found
+        Just t  -> Map.lookup t terminal_to_token  -- Return the first matching token
+
 
 main :: IO ()
 main = 

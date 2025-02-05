@@ -105,25 +105,33 @@ ngoto :: NFA -> [Node] -> Char -> [Node]
 -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
 get_term_token :: NFA -> [Nodes] -> (Map.Map Node Token) -> Maybe Token
 
--- Takes NFA, dict that maps terminal nodes to tokens, list of characters and returns the list of tokens.
+
+-- Takes an NFA, a dictionary mapping terminal nodes to tokens, and a list of characters
+-- Returns the list of tokens.
 lex :: NFA -> (Map.Map Node Token) -> [Char] -> [Token]
 lex nfa terminal_to_token literals = 
-  case aux (closure (initial nfa)) 0 of 
-    | None        -> []
-    | Some (t, n) -> t :: (lex NFA terminal_to_token (shift n literals))
-  -- Takes list of initial nodes and returns Nothing if no token was found, or pair of 
-  -- token, and how much literals should we take. 
-  where 
-    aux :: [Node] -> Int -> Maybe (Token, Int) 
-    aux nodes n =
-      let 
-        token  = get_term_token nodes
-        cur    = (\t -> (t, n)) <*> token
-        nodes  = ngoto nfa nodes (nth literals n)
-        try    = aux nodes (n + 1)
-      in 
-        try <|> cur
+  case aux (closure nfa [initial nfa]) 0 of 
+    Nothing       -> []  -- No token found, return an empty list
+    Just (t, n)   -> t : lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
 
+  where 
+    -- Recursive helper function to match the longest valid token
+    aux :: [Node] -> Int -> Maybe (Token, Int)
+    aux nodes n
+      | n >= length literals = get_token_result (length literals) nodes  -- End of input
+      | otherwise =
+          let 
+            next_nodes = closure nfa (ngoto nfa nodes (literals !! n))  -- Compute next states with closure
+            try_next   = aux next_nodes (n + 1)  -- Try consuming another character
+          in 
+            try_next <|> get_token_result n nodes  -- Prefer longer matches
+
+    -- Returns a token if any terminal state is reached
+    get_token_result :: [Node] -> Int -> Maybe (Token, Int)
+    get_token_result nodes =
+      case get_term_token nfa nodes terminal_to_token of
+        Just token -> Just (token, n)
+        Nothing    -> Nothing
 
 main :: IO ()
 main = 

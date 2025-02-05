@@ -103,8 +103,11 @@ closure :: NFA -> [Node] -> [Node]
 ngoto :: NFA -> [Node] -> Char -> [Node]
 
 -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
-get_term_token :: NFA -> [Nodes] -> (Map.Map Node Token) -> Maybe Token
-
+get_term_token :: NFA -> [Node] -> (Map.Map Node Token) -> Maybe Token
+get_term_token _ nodes terminal_to_token = 
+  case filter (`Map.member` terminal_to_token) nodes of
+    []     -> Nothing         -- No terminal nodes found
+    (t:_)  -> Map.lookup t terminal_to_token  -- Return the first matching token
 
 -- Takes an NFA, a dictionary mapping terminal nodes to tokens, and a list of characters
 -- Returns the list of tokens.

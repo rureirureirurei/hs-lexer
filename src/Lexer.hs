@@ -77,20 +77,21 @@ translate (Range c1 c2)
   | otherwise = translate (Cat (Lit c1) (Range (succ c1) c2))
 
 
- -- Takes list of rules and translates them to the single NFA instance
-translateMany ::  [(Token, Regex)] -> NFA
-translateMany rules = 
-  let 
-    mnfa = do
+-- Takes a list of rules and translates them into a single NFA instance along with a terminal-to-token map
+translateMany :: [(Token, Regex)] -> (NFA, Map.Map Node Token)
+translateMany rules = runState buildNFA 0
+  where 
+    buildNFA = do
       start <- newNode
-      nfas  <- mapM (\(t, rgx) -> translate rgx) rules
+      nfas  <- mapM (translate . snd) rules  -- Translate regexes to NFAs
+
       let 
-        newEdges       = Map.fromList $ [(start, map (\a -> (Eps, (initial a))) nfas )]
-        allTerminals   = foldl (\acc a -> acc ++ (terminal a)) [] nfas
-        allTransitions = foldl (\acc a -> acc `joinTs` (transitions a)) Map.empty nfas
-      return $ nfa start allTerminals (allTransitions `joinTs` newEdges)
-  in 
-    fst $ runState mnfa 0
+        newEdges        = Map.singleton start [(Eps, initial a) | a <- nfas]
+        allTerminals    = concatMap terminal nfas
+        terminalToToken = Map.fromList [(n, t) | (t, a) <- zip (map fst rules) nfas, n <- terminal a]
+        allTransitions  = foldl joinTs Map.empty (map transitions nfas)
+
+      return (nfa start allTerminals (allTransitions `joinTs` newEdges), terminalToToken)
 
 
 data Token = ID | NUM | OP deriving Show
@@ -134,7 +135,7 @@ lex :: NFA -> Map.Map Node Token -> [Char] -> [Token]
 lex nfa terminal_to_token literals = 
   case aux (closure nfa (Set.singleton (initial nfa))) 0 of 
     Nothing       -> []  -- No token found, return an empty list
-    Just (t, n)   -> t : lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
+    Just (t, n)   -> t : Lexer.lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
 
   where 
     -- Recursive helper function to match the longest valid token

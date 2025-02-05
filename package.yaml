@@ -26,6 +26,7 @@ dependencies:
 - text
 - fgl
 - extra
+- hspec
 
 ghc-options:
 - -Wall

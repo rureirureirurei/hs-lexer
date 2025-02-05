@@ -12,7 +12,7 @@ main =
     rules =
       [ (ID, Plus (Range 'a' 'z'))
       , (NUM, Plus (Range '0' '9'))
-      , (OP, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Cat (Lit '/') (Lit '/')))))
+      , (OP, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Lit '/'))))
       ]
     (nfa, t2t) = translateMany rules  -- Get the NFA and auxillary Map
   in do 

@@ -10,13 +10,14 @@ main :: IO ()
 main = 
   let 
     rules =
-      [ (ID, Plus (Range 'a' 'z'))
-      , (NUM, Plus (Range '0' '9'))
-      , (OP, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Lit '/'))))
+      [ (id, Plus (Range 'a' 'z'))
+      , (id, Plus (Range '0' '9'))
+      , (id, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Lit '/'))))
       ]
     (nfa, t2t) = translateMany rules  -- Get the NFA and auxillary Map
+    str = "aoeu +1023/bu+123"
   in do 
-    str <- getLine                    -- String to parse
+    -- str <- getLine                    -- String to parse
     Graph.showNFA nfa
     -- print $ t2t
-    print $ (show $ Lexer.lex nfa t2t str)
+    print $ Lexer.lex nfa t2t str

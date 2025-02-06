@@ -11,15 +11,16 @@ import NFA
 
 -- Takes an NFA, a dictionary mapping terminal nodes to tokens, and a list of characters
 -- Returns the list of tokens.
-lex :: forall t. NFA -> Map.Map Node t -> [Char] -> [t]
+lex :: forall t. NFA -> Map.Map Node (String -> t) -> [Char] -> [t]
 lex nfa terminal_to_token literals = 
   case aux (closure nfa (Set.singleton (initial nfa))) 0 of 
-    Nothing       -> []  -- No token found, return an empty list
-    Just (t, n)   -> t : Lexer.lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
+    Nothing       -> if (length literals == 0) then [] else error "Can't lex"
+      -- No token found, return an empty list
+    Just (t, n)   -> (t $ take n literals) : Lexer.lex nfa terminal_to_token (drop n literals)  -- Move forward `n` characters
 
   where 
     -- Recursive helper function to match the longest valid token
-    aux :: Set.Set Node -> Int -> Maybe (t, Int)
+    aux :: Set.Set Node -> Int -> Maybe ((String -> t), Int)
     aux nodes n
       | n >= length literals = get_token_result n nodes  -- End of input
       | otherwise =
@@ -63,7 +64,7 @@ lex nfa terminal_to_token literals =
 
 
     -- Filters out the terminal nodes, and if there are some - returns the Token associated with the first one.
-    get_term_token :: Set.Set Node -> Maybe t
+    get_term_token :: Set.Set Node -> Maybe (String -> t)
     get_term_token nodes = 
       case Set.lookupMin (Set.filter (`Map.member` terminal_to_token) nodes) of
         Nothing -> Nothing         -- No terminal nodes found

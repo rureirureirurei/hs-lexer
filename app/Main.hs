@@ -4,18 +4,18 @@ import Lexer
 import Graph
 import Regex
 
-data Token = ID | NUM | OP deriving Show
+data Token = ID String | NUM String | OP String  deriving (Show, Eq)
 
 main :: IO ()
 main = 
   let 
     rules =
-      [ (id, Plus (Range 'a' 'z'))
-      , (id, Plus (Range '0' '9'))
-      , (id, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Lit '/'))))
+      [ (ID, Plus (Range 'a' 'z'))
+      , (NUM, Plus (Range '0' '9'))
+      , (OP, Alt (Lit '+') (Alt (Lit '-') (Alt (Lit '*') (Lit '/'))))
       ]
-    (nfa, t2t) = translateMany rules  -- Get the NFA and auxillary Map
-    str = "aoeu +1023/bu+123"
+    (nfa, t2t) = translateMany rules     -- Get the NFA and auxillary Map
+    str = "aoeu+1023/bu+123"
   in do 
     -- str <- getLine                    -- String to parse
     Graph.showNFA nfa
